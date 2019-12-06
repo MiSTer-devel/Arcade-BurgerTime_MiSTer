@@ -204,8 +204,6 @@ always @(posedge clk_sys) begin
 			9'h006: btn_two_players <= pressed; // F2
 			// JPAC/IPAC/MAME Style Codes
 
-			'h005: btn_one_player  <= pressed; // F1
-			'h006: btn_two_players <= pressed; // F2
 			'h016: btn_start_1     <= pressed; // 1
 			'h01E: btn_start_2     <= pressed; // 2
 			'h02E: btn_coin_1      <= pressed; // 5
@@ -271,12 +269,14 @@ always @(posedge clk_48) begin
         ce_pix <= old_clk & ~clk_sys;
 end
 
-arcade_rotate_fx #(506,240,8,0) arcade_video
+//arcade_rotate_fx #(506,240,8,0) arcade_video
+arcade_rotate_fx #(253,240,8,0) arcade_video
+//arcade_rotate_fx #(524,240,8,0) arcade_video
 (
         .*,
 
         .clk_video(clk_48),
-        //.ce_pix(ce_vid),
+        .ce_pix(ce_vid),
 
         .RGB_in({r,g,b}),
         .HBlank(hblank),
