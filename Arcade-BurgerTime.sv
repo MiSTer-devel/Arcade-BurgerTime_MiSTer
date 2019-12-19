@@ -258,15 +258,13 @@ wire hs, vs;
 wire [2:0] r,g;
 wire [1:0] b;
 
-
 reg ce_pix;
 always @(posedge clk_48) begin
-        reg old_clk;
+        reg [1:0] div;
 
-        old_clk <= clk_sys;
-        ce_pix <= old_clk & ~clk_sys;
+        div <= div + 1'd1;
+        ce_pix <= !div;
 end
-
 //arcade_rotate_fx #(506,240,8,0) arcade_video
 arcade_rotate_fx #(253,240,8,0) arcade_video
 //arcade_rotate_fx #(524,240,8,0) arcade_video
