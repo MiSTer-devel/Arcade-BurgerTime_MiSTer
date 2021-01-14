@@ -257,13 +257,6 @@ wire hs, vs;
 wire [2:0] r,g;
 wire [1:0] b;
 
-reg ce_pix;
-always @(posedge clk_48) begin
-        reg [1:0] div;
-
-        div <= div + 1'd1;
-        ce_pix <= !div;
-end
 
 
 wire rotate_ccw = 0;

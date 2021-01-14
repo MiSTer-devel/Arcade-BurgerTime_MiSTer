@@ -229,7 +229,7 @@ end process;
 --  hcnt [0..255,256..383] => 384 pixels,  384/6Mhz => 1 line is 64us (15.625KHz)
 --  vcnt [8..255,256..279] => 272 lines, 1 frame is 272 x 64us = 17.41ms (57.44Hz)
 
-process (reset, clock_12)
+process (reset, clock_12, clock_6)
 begin
 	if reset='1' then
 		hcnt  <= (others => '0');
@@ -394,7 +394,7 @@ fg_ram_addr <= cpu_addr(4 downto 0) & cpu_addr(9 downto 5)   when "00",    -- cp
 -- latch sprite data, 
 -- manage fg and sprite graphix rom address
 -- manage sprite line buffer address
-process (clock_12)
+process (clock_12, clock_6)
 begin
 	if rising_edge(clock_12) and clock_6 = '1' then
 		
@@ -452,7 +452,7 @@ end process;
 sprite_buffer_addr_flip <= not (sprite_buffer_addr) when hcnt8_rr = '0' and cocktail_flip = '1' else sprite_buffer_addr;
 
 -- latch and shift foreground and sprite graphics
-process (clock_12)
+process (clock_12, clock_6)
 begin
 	if rising_edge(clock_12) and clock_6 = '1' then
 		if hcnt(2 downto 0) = "101" then
@@ -486,7 +486,7 @@ sprite_buffer_di <= "000"            when hcnt8_rr = '0' else -- clear ram after
 						  sprite_buffer_do when fg_sp_bits = "000" else fg_sp_bits; -- sp vs sp priority rules
 
 -- read sprite buffer
-process (clock_12)
+process (clock_12, clock_6)
 begin
 	if rising_edge(clock_12) and clock_6 = '0' then
 		if hcnt8_rr = '0' then
@@ -505,7 +505,7 @@ fg_bits <= sp_bits_out when (fg_sp_bits = "000") or (sp_bits_out/="000" and fg_l
 ----------------
 
 -- latch scroll1 & 2 data
-process (clock_12n) 
+process (clock_12n,clock_6) 
 begin
 	if rising_edge(clock_12n) and clock_6 = '1' then	
 		if scroll1_we = '1' then 
@@ -524,7 +524,7 @@ bg_scan_hcnt <= (hcnt_flip) + (scroll1(1 downto 0)&scroll2) + "0011110010" when 
 bg_map_addr <= scroll1(2)  & bg_scan_hcnt(9 downto 4) & vcnt_flip(7 downto 4);
 
 -- manage background graphics rom address
-process (clock_12) 
+process (clock_12,clock_6) 
 begin
 	if rising_edge(clock_12) and clock_6 = '0' then	
 		if bg_scan_hcnt(2 downto 0) = "000" then 
@@ -534,7 +534,7 @@ begin
 end process;
 		
 -- latch and shift background graphics
-process (clock_12)
+process (clock_12,clock_6)
 begin
 	if rising_edge(clock_12) and clock_6 = '1' then
 		if scroll1(4) = '0' then
@@ -568,7 +568,7 @@ palette_addr <= cpu_addr(3 downto 0) when palette_we = '1' else
 					 '0'&fg_bits;
 					 
 -- get palette output
-process (clock_12) 
+process (clock_12,clock_6) 
 begin
 	if rising_edge(clock_12) and clock_6 = '0' then
 		video_r <= not palette_do(2 downto 0);
@@ -583,7 +583,7 @@ end process;
 
 video_csync <= csync;
 
-process(clock_12)
+process(clock_12,clock_6)
 	constant hcnt_base : integer := 312;  --320
  	variable vsync_cnt : std_logic_vector(3 downto 0);
 begin
