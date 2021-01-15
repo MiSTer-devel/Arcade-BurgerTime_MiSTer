@@ -231,8 +231,7 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 	.joystick_0(joystick_0),
 	.joystick_1(joystick_1)
 );
-wire no_rotate = status[2] & ~direct_video;
-
+wire no_rotate = status[2] | direct_video;
 
 wire m_up     = joy[3];
 wire m_down   = joy[2];
@@ -263,7 +262,7 @@ wire rotate_ccw = 0;
 screen_rotate screen_rotate (.*);
 
 
-arcade_video #(253,8,0) arcade_video
+arcade_video #(253,8) arcade_video
 (
         .*,
 
