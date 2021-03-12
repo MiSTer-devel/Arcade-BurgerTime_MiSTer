@@ -42,6 +42,9 @@
 --
 -- Joystick support.
 -- 
+
+-- High score save/load - To save your scores use the 'Save Settings' option in the OSD.  
+-- * Warning: Scores are only loaded when core starts, using reset will return scores to factory settings *
 -- 
 ---------------------------------------------------------------------------------
 
