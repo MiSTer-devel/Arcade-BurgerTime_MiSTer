@@ -71,8 +71,16 @@ port
 	
 	dip_sw1        : in std_logic_vector(7 downto 0);
 	dip_sw2        : in std_logic_vector(7 downto 0);
-		
-	dbg_cpu_addr: out std_logic_vector(15 downto 0)
+
+	dbg_cpu_addr: out std_logic_vector(15 downto 0);
+
+	hs_address     : in  std_logic_vector(10 downto 0);
+	hs_data_out    : out std_logic_vector(7 downto 0);
+	hs_data_in     : in  std_logic_vector(7 downto 0);
+	hs_write       : in  std_logic;
+
+	pause          : in  std_logic
+
   );
 end burger_time;
 
@@ -658,7 +666,7 @@ port map
     Res_n       => reset_n,
     Enable      => cpu_ena,
     Clk         => clock_12,
-    Rdy         => '1',
+    Rdy         => not pause,
     Abort_n     => '1',
     IRQ_n       => '1',--cpu_irq_n,
     NMI_n       => cpu_nmi_n,
@@ -688,14 +696,19 @@ romb4_cs <= '1' when dn_addr(15 downto 11) = "10111" else '0';
 
 
 -- working ram 
-wram : entity work.gen_ram
-generic map( dWidth => 8, aWidth => 11)
+wram : entity work.dpram generic map(11)
 port map(
- clk  => clock_12n,
- we   => wram_we,
- addr => cpu_addr( 10 downto 0),
- d    => cpu_do,
- q    => wram_do
+ clock_a   => clock_12n,
+ wren_a    => wram_we,
+ address_a => cpu_addr( 10 downto 0),
+ data_a    => cpu_do,
+ q_a       => wram_do,
+ 
+ clock_b   => clock_12,
+ wren_b    => hs_write,
+ address_b => hs_address,
+ data_b    => hs_data_in,
+ q_b       => hs_data_out
 );
 
 -- program rom

@@ -25,4 +25,10 @@
 		<part crc="d26bc1f3" name="ab03.6b"/>
 		<part crc="f55e5211" name="ab14.12h"/>
 	</rom>
+	<rom index="3" md5="none">
+		<part>
+		 00 00 00 33 27 00 FF 00
+		</part>
+	</rom>
+	<nvram index="4" size="39"/>
 </misterromdescription>
