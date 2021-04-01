@@ -39,8 +39,9 @@ module emu
 	output        CE_PIXEL,
 
 	//Video aspect ratio for HDMI. Most retro systems have ratio 4:3.
-	output [11:0] VIDEO_ARX,
-	output [11:0] VIDEO_ARY,
+	//if VIDEO_ARX[12] or VIDEO_ARY[12] is set then [11:0] contains scaled size instead of aspect ratio.
+	output [12:0] VIDEO_ARX,
+	output [12:0] VIDEO_ARY,
 
 	output  [7:0] VGA_R,
 	output  [7:0] VGA_G,
@@ -55,14 +56,14 @@ module emu
 	input  [11:0] HDMI_WIDTH,
 	input  [11:0] HDMI_HEIGHT,
 
-`ifdef USE_FB
-	// Use framebuffer from DDRAM (USE_FB=1 in qsf)
+`ifdef MISTER_FB
+	// Use framebuffer in DDRAM (USE_FB=1 in qsf)
 	// FB_FORMAT:
 	//    [2:0] : 011=8bpp(palette) 100=16bpp 101=24bpp 110=32bpp
 	//    [3]   : 0=16bits 565 1=16bits 1555
 	//    [4]   : 0=RGB  1=BGR (for 16/24/32 modes)
 	//
-	// FB_STRIDE either 0 (rounded to 256 bytes) or multiple of 16 bytes.
+	// FB_STRIDE either 0 (rounded to 256 bytes) or multiple of pixel size (in bytes)
 	output        FB_EN,
 	output  [4:0] FB_FORMAT,
 	output [11:0] FB_WIDTH,
@@ -73,6 +74,7 @@ module emu
 	input         FB_LL,
 	output        FB_FORCE_BLANK,
 
+`ifdef MISTER_FB_PALETTE
 	// Palette control for 8bit modes.
 	// Ignored for other video modes.
 	output        FB_PAL_CLK,
@@ -80,6 +82,7 @@ module emu
 	output [23:0] FB_PAL_DOUT,
 	input  [23:0] FB_PAL_DIN,
 	output        FB_PAL_WR,
+`endif
 `endif
 
 	output        LED_USER,  // 1 - ON, 0 - OFF.
@@ -90,13 +93,27 @@ module emu
 	output  [1:0] LED_POWER,
 	output  [1:0] LED_DISK,
 
+	// I/O board button press simulation (active high)
+	// b[1]: user button
+	// b[0]: osd button
+	output  [1:0] BUTTONS,
+
 	input         CLK_AUDIO, // 24.576 MHz
 	output [15:0] AUDIO_L,
 	output [15:0] AUDIO_R,
 	output        AUDIO_S,   // 1 - signed audio samples, 0 - unsigned
 	output  [1:0] AUDIO_MIX, // 0 - no mix, 1 - 25%, 2 - 50%, 3 - 100% (mono)
 
-`ifdef USE_DDRAM
+	//ADC
+	inout   [3:0] ADC_BUS,
+
+	//SD-SPI
+	output        SD_SCK,
+	output        SD_MOSI,
+	input         SD_MISO,
+	output        SD_CS,
+	input         SD_CD,
+
 	//High latency DDR3 RAM interface
 	//Use for non-critical time purposes
 	output        DDRAM_CLK,
@@ -109,9 +126,8 @@ module emu
 	output [63:0] DDRAM_DIN,
 	output  [7:0] DDRAM_BE,
 	output        DDRAM_WE,
-`endif
 
-`ifdef USE_SDRAM
+	//SDRAM interface with lower latency
 	output        SDRAM_CLK,
 	output        SDRAM_CKE,
 	output [12:0] SDRAM_A,
@@ -123,7 +139,27 @@ module emu
 	output        SDRAM_nCAS,
 	output        SDRAM_nRAS,
 	output        SDRAM_nWE,
+
+`ifdef MISTER_DUAL_SDRAM
+	//Secondary SDRAM
+	//Set all output SDRAM_* signals to Z ASAP if SDRAM2_EN is 0
+	input         SDRAM2_EN,
+	output        SDRAM2_CLK,
+	output [12:0] SDRAM2_A,
+	output  [1:0] SDRAM2_BA,
+	inout  [15:0] SDRAM2_DQ,
+	output        SDRAM2_nCS,
+	output        SDRAM2_nCAS,
+	output        SDRAM2_nRAS,
+	output        SDRAM2_nWE,
 `endif
+
+	input         UART_CTS,
+	output        UART_RTS,
+	input         UART_RXD,
+	output        UART_TXD,
+	output        UART_DTR,
+	input         UART_DSR,
 
 	// Open-drain User port.
 	// 0 - D+/RX
@@ -136,17 +172,18 @@ module emu
 	input         OSD_STATUS
 );
 
+assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
+assign {UART_RTS, UART_TXD, UART_DTR} = 0;
+assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
 
 assign VGA_F1    = 0;
 assign VGA_SCALER= 0;
-
 assign USER_OUT  = '1;
 assign LED_USER  = ioctl_download;
 assign LED_DISK  = 0;
 assign LED_POWER = 0;
+assign BUTTONS   = 0;
 assign AUDIO_MIX = 0;
-
-assign {FB_PAL_CLK, FB_FORCE_BLANK, FB_PAL_ADDR, FB_PAL_DOUT, FB_PAL_WR} = '0;
 
 wire [1:0] ar = status[20:19];
 
@@ -168,6 +205,7 @@ localparam CONF_STR = {
 	"OC,Cabinet,Upright,Cocktail;",	
 	"OD,Hatch,Off,On;",	
 	"OE,Test,Off,On;",	
+	"O6,Pause when OSD is open,On,Off;",
 	"-;",
 	"R0,Reset;",
 	"J1,Fire,Start 1P,Start 2P,Coin,Pause;",
@@ -272,26 +310,21 @@ reg				pause;									// Pause signal (active-high)
 reg				pause_toggle = 1'b0;					// User paused (active-high)
 reg [31:0]		pause_timer;							// Time since pause
 reg [31:0]		pause_timer_dim = 31'hE4E1C00;	// Time until screen dim (10 seconds @ ~24Mhz)
+reg 				dim_video = 1'b0;						// Dim video output (active-high)
 
-assign pause = pause_toggle;
+// Pause when highscore module requires access, user has pressed pause, or OSD is open and option is set
+assign pause = hs_access | pause_toggle  | (OSD_STATUS && ~status[6]);
+assign dim_video = (pause_timer >= pause_timer_dim) ? 1'b1 : 1'b0;
 
 always @(posedge clk_sys) begin
-	// User pause toggle
 	reg old_pause;
 	old_pause <= m_pause;
 	if(~old_pause & m_pause) pause_toggle <= ~pause_toggle;
-	
-	// Screen dim while paused
-	rgb_out <= {r,g,b};
 	if(pause_toggle)
 	begin
 		if(pause_timer<pause_timer_dim)
 		begin
 			pause_timer <= pause_timer + 1'b1;
-		end
-		else
-		begin
-			rgb_out <= {r >> 1,g >> 1, b >> 1};
 		end
 	end
 	else
@@ -306,7 +339,7 @@ wire ce_vid;
 wire hs, vs;
 wire [2:0] r,g;
 wire [1:0] b;
-wire [7:0] rgb_out;
+wire [7:0] rgb_out = dim_video ? {r >> 1,g >> 1, b >> 1} : {r,g,b};
 
 wire rotate_ccw = 0;
 screen_rotate screen_rotate (.*);
@@ -384,7 +417,6 @@ burger_time burger_time
 	.pause(pause)
 );
 
-
 // HISCORE SYSTEM
 // --------------
 // NOTE: Scores are not written to RAM after a reset, reason as yet unknown
@@ -395,17 +427,12 @@ wire hs_access;
 
 hiscore #(
 	.HS_ADDRESSWIDTH(11),
-	.CFG_ADDRESSWIDTH(1),
-	.CFG_LENGTHWIDTH(1),
-	.DELAY_CHECKWAIT(1'b0),
-	.DELAY_CHECKHOLD(1'b0),
-	.WRITE_REPEATCOUNT(8'd2),
-	.WRITE_REPEATDELAY(31'd100000)
-	
+	.HS_SCOREWIDTH(6),			// 39 bytes
+	.CFG_ADDRESSWIDTH(1),		// 1 entry
+	.CFG_LENGTHWIDTH(2)
 ) hi (
 	.clk(clk_sys),
 	.reset(reset),
-	.delay(1'b1),
 	.ioctl_upload(ioctl_upload),
 	.ioctl_download(ioctl_download),
 	.ioctl_wr(ioctl_wr),
@@ -418,5 +445,6 @@ hiscore #(
 	.ram_write(hs_write),
 	.ram_access(hs_access)
 );
+
 
 endmodule
