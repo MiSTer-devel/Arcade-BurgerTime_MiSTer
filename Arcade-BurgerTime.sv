@@ -197,14 +197,15 @@ localparam CONF_STR = {
 	"H0OJK,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"H0O2,Orientation,Vert,Horz;",
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
+	"O7,Flip Screen,Off,On;",
 	"-;",
 	"O8,Lives,3,5;",
 	"O9A,Bonus,10k,15k,20k,30k;",
 	"OB,Enemies,4,6;",
-	"OF,End of Level Pepper,No,Yes;",	
-	"OC,Cabinet,Upright,Cocktail;",	
-	"OD,Hatch,Off,On;",	
-	"OE,Test,Off,On;",	
+	"OF,End of Level Pepper,No,Yes;",
+	"OC,Cabinet,Upright,Cocktail;",
+	"OD,Hatch,Off,On;",
+	"OE,Test,Off,On;",
 	"O6,Pause when OSD is open,On,Off;",
 	"-;",
 	"R0,Reset;",
@@ -218,7 +219,7 @@ localparam CONF_STR = {
 -- dip_sw1    -- unkown/cocktail/hatch/test/coinage_b[2]/coinage_a[2]
 -- dip_sw2    -- off/off/off/eol pepper/enemies/bonus[2]/lives
 
-dip_sw1 <= "00111111";  
+dip_sw1 <= "00111111";
 dip_sw2 <= "11101110";
 */
 wire [7:0] m_dip_sw1={1'b0,status[12],~status[13],~status[14],4'b1111};
@@ -405,16 +406,17 @@ burger_time burger_time
 	.left2(m_left_2),
 	.down2(m_down_2),
 	.up2(m_up_2),
-	
+
 	.dip_sw1(m_dip_sw1),
 	.dip_sw2(m_dip_sw2),
-	
+
 	.hs_address(hs_address),
 	.hs_data_out(ioctl_din),
 	.hs_data_in(hs_data_in),
 	.hs_write(hs_write),
-	
-	.pause(pause)
+
+	.pause(pause),
+	.flip_screen(status[7])
 );
 
 // HISCORE SYSTEM
