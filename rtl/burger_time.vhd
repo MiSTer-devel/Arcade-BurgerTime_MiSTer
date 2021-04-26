@@ -34,8 +34,7 @@ port
 (
 	clock_12     : in std_logic;
 	reset        : in std_logic;
-
-	dn_addr      : in  std_logic_vector(15 downto 0);
+	dn_addr      : in  std_logic_vector(16 downto 0);
 	dn_data      : in  std_logic_vector(7 downto 0);
 	dn_wr        : in  std_logic;
 
@@ -354,7 +353,7 @@ wram_cs     <= '1' when cpu_addr(15 downto 11) = "00000"         else '0'; -- wo
 io_cs       <= '1' when cpu_addr(15 downto  3) = "0100000000000" else '0'; -- player/dip_sw   4000-4007 (4004)
 fg_ram_cs   <= '1' when cpu_addr(15 downto 12) = "0001"          else '0'; -- foreground ram  1000-1fff
 palette_cs  <= '1' when cpu_addr(15 downto  4) = "000011000000"  else '0'; -- palette ram     0c00-0c0f
-prog_rom_cs <= '1' when cpu_addr(15 downto 14) = "11"            else '0'; -- program rom     c000-ffff
+prog_rom_cs <= '1' when cpu_addr(15)           = '1'             else '0'; -- program rom     c000-ffff
 
 -- write enable
 wram_we        <= '1' when wram_cs = '1'                          and cpu_rw_n = '0' and cpu_ena = '1' else '0'; -- 0000-07ff
@@ -688,15 +687,15 @@ port map
     DO          => cpu_do
 );
 
-romp_cs  <= '1' when dn_addr(15 downto 14) = "00"    else '0';
-roms1_cs <= '1' when dn_addr(15 downto 13) = "010"   else '0';
-roms2_cs <= '1' when dn_addr(15 downto 13) = "011"   else '0';
-roms3_cs <= '1' when dn_addr(15 downto 13) = "100"   else '0';
-romb1_cs <= '1' when dn_addr(15 downto 11) = "10100" else '0';
-romb2_cs <= '1' when dn_addr(15 downto 11) = "10101" else '0';
-romb3_cs <= '1' when dn_addr(15 downto 11) = "10110" else '0';
-romb4_cs <= '1' when dn_addr(15 downto 11) = "10111" else '0';
-
+romp_cs  <= '1' when dn_addr(16 downto 15) = "00" and
+                     dn_addr(14 downto 12) /= "000"  else '0';
+roms1_cs <= '1' when dn_addr(16 downto 13) = "0100"   else '0';
+roms2_cs <= '1' when dn_addr(16 downto 13) = "0101"   else '0';
+roms3_cs <= '1' when dn_addr(16 downto 13) = "0110"   else '0';
+romb1_cs <= '1' when dn_addr(16 downto 11) = "011100" else '0';
+romb2_cs <= '1' when dn_addr(16 downto 11) = "011101" else '0';
+romb3_cs <= '1' when dn_addr(16 downto 11) = "011110" else '0';
+romb4_cs <= '1' when dn_addr(16 downto 11) = "011111" else '0';
 
 -- working ram
 wram : entity work.dpram generic map(11)
@@ -715,16 +714,16 @@ port map(
 );
 
 -- program rom
-program_rom : work.dpram generic map (14)
+program_rom : work.dpram generic map (15)
 port map
 (
 	clock_a   => clock_12,
 	wren_a    => dn_wr and romp_cs,
-	address_a => dn_addr(13 downto 0),
+	address_a => dn_addr(14 downto 0),
 	data_a    => dn_data,
 
 	clock_b   => clock_12n,
-	address_b => cpu_addr(13 downto 0),
+	address_b => cpu_addr(14 downto 0),
 	q_b       => prog_rom_do
 );
 
