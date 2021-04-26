@@ -191,7 +191,7 @@ assign VIDEO_ARX = (!ar) ? ((status[2])  ? 8'd4 : 8'd3) : (ar - 1'd1);
 assign VIDEO_ARY = (!ar) ? ((status[2])  ? 8'd3 : 8'd4) : 12'd0;
 
 
-`include "build_id.v" 
+`include "build_id.v"
 localparam CONF_STR = {
 	"A.BTIME;;",
 	"H0OJK,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
@@ -199,15 +199,9 @@ localparam CONF_STR = {
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"O7,Flip Screen,Off,On;",
 	"-;",
-	"O8,Lives,3,5;",
-	"O9A,Bonus,10k,15k,20k,30k;",
-	"OB,Enemies,4,6;",
-	"OF,End of Level Pepper,No,Yes;",
-	"OC,Cabinet,Upright,Cocktail;",
-	"OD,Hatch,Off,On;",
-	"OE,Test,Off,On;",
-	"O6,Pause when OSD is open,On,Off;",
+	"DIP;",
 	"-;",
+	"O6,Pause when OSD is open,On,Off;",
 	"R0,Reset;",
 	"J1,Fire,Start 1P,Start 2P,Coin,Pause;",
 	"jn,A,Start,Select,R,L;",
@@ -215,15 +209,10 @@ localparam CONF_STR = {
 	"V,v",`BUILD_DATE
 };
 
-/*
--- dip_sw1    -- unkown/cocktail/hatch/test/coinage_b[2]/coinage_a[2]
--- dip_sw2    -- off/off/off/eol pepper/enemies/bonus[2]/lives
+// DIP switches
 
-dip_sw1 <= "00111111";
-dip_sw2 <= "11101110";
-*/
-wire [7:0] m_dip_sw1={1'b0,status[12],~status[13],~status[14],4'b1111};
-wire [7:0] m_dip_sw2={3'b111,~status[15],~status[11],~status[10:9],~status[8]};
+reg [7:0] dsw[2];
+always @(posedge clk_sys) if (ioctl_wr && (ioctl_index==254) && !ioctl_addr[24:1]) dsw[ioctl_addr[0]] <= ioctl_dout;
 
 ////////////////////   CLOCKS   ///////////////////
 
@@ -303,8 +292,9 @@ wire m_fire_2  = joy[4];
 
 wire m_start1 = joy[5];
 wire m_start2 = joy[6];
-wire m_coin   = joy[7];
-wire m_pause   = joy[8];
+wire m_pause  = joy[8];
+wire m_coin1  = joystick_0[7];
+wire m_coin2  = joystick_1[7];
 
 // PAUSE SYSTEM
 reg				pause;									// Pause signal (active-high)
@@ -368,7 +358,7 @@ assign AUDIO_R = AUDIO_L;
 assign AUDIO_S = 0;
 
 wire rom_download = ioctl_download & !ioctl_index;
-wire reset = (RESET | status[0] | ioctl_download | buttons[1]);
+wire reset = (RESET | status[0] | buttons[1]);
 
 burger_time burger_time
 (
@@ -391,9 +381,10 @@ burger_time burger_time
 
 	.audio_out(audio),
 
-	.start2(m_start2),
 	.start1(m_start1),
-	.coin1(m_coin),
+	.start2(m_start2),
+	.coin1(m_coin1),
+	.coin2(m_coin2),
 
 	.fire1(m_fire),
 	.right1(m_right),
@@ -407,8 +398,8 @@ burger_time burger_time
 	.down2(m_down_2),
 	.up2(m_up_2),
 
-	.dip_sw1(m_dip_sw1),
-	.dip_sw2(m_dip_sw2),
+	.dip_sw1(dsw[0] ^ 8'h3f),
+	.dip_sw2(~dsw[1]),
 
 	.hs_address(hs_address),
 	.hs_data_out(ioctl_din),

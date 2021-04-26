@@ -36,7 +36,7 @@ port
 	reset        : in std_logic;
 	dn_addr      : in  std_logic_vector(16 downto 0);
 	dn_data      : in  std_logic_vector(7 downto 0);
-	dn_wr        : in  std_logic;
+	dn_wr        : in  std_logic ;
 
 	video_ce     : out std_logic;
 
@@ -52,9 +52,10 @@ port
 
 	audio_out    : out std_logic_vector(10 downto 0);
 
-	start2         : in std_logic;
 	start1         : in std_logic;
+	start2         : in std_logic;
 	coin1          : in std_logic;
+	coin2          : in std_logic;
 
 	fire1          : in std_logic;
 	right1         : in std_logic;
@@ -198,6 +199,7 @@ architecture syn of burger_time is
 	-- misc
 	signal raz_nmi_we : std_logic;
 	signal coin1_r : std_logic;
+	signal coin2_r : std_logic;
 	signal sound_req : std_logic;
 
 	signal romp_cs,roms1_cs,roms2_cs,roms3_cs,romb1_cs,romb2_cs,romb3_cs,romb4_cs  : std_logic;
@@ -313,7 +315,7 @@ vcnt_flip <= not vcnt when screen_flipped = '0' else vcnt;
 --dip_sw2 <= "11101110";
 btn_p1 <=  not("000"&fire1 & down1 & up1 & left1 & right1);
 btn_p2 <=  not("000"&fire2 & down2 & up2 & left2 & right2);
-btn_system <= ('0'&coin1) & not("0000"&start2&start1);
+btn_system <= (coin2&coin1) & not("0000"&start2&start1);
 
 -- misc (coin, nmi, cocktail)
 process (reset,clock_12)
@@ -325,7 +327,8 @@ begin
 	else
 		if rising_edge(clock_12)then
 			coin1_r <= coin1;
-			if coin1_r = '0' and coin1 = '1' then
+			coin2_r <= coin2;
+			if (coin1_r = '0' and coin1 = '1') or (coin2_r = '0' and coin2 = '1') then
 				cpu_nmi_n <= '0';
 			end if;
 			if raz_nmi_we = '1' then
@@ -353,7 +356,7 @@ wram_cs     <= '1' when cpu_addr(15 downto 11) = "00000"         else '0'; -- wo
 io_cs       <= '1' when cpu_addr(15 downto  3) = "0100000000000" else '0'; -- player/dip_sw   4000-4007 (4004)
 fg_ram_cs   <= '1' when cpu_addr(15 downto 12) = "0001"          else '0'; -- foreground ram  1000-1fff
 palette_cs  <= '1' when cpu_addr(15 downto  4) = "000011000000"  else '0'; -- palette ram     0c00-0c0f
-prog_rom_cs <= '1' when cpu_addr(15)           = '1'             else '0'; -- program rom     c000-ffff
+prog_rom_cs <= '1' when cpu_addr(15)           = '1'             else '0'; -- program rom     8000-ffff
 
 -- write enable
 wram_we        <= '1' when wram_cs = '1'                          and cpu_rw_n = '0' and cpu_ena = '1' else '0'; -- 0000-07ff
