@@ -198,6 +198,7 @@ localparam CONF_STR = {
 	"H0O2,Orientation,Vert,Horz;",
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"O7,Flip Screen,Off,On;",
+	"O8,Video timing,Original,59.8Hz;",
 	"-;",
 	"DIP;",
 	"-;",
@@ -332,7 +333,8 @@ wire [2:0] r,g;
 wire [1:0] b;
 wire [7:0] rgb_out = dim_video ? {r >> 1,g >> 1, b >> 1} : {r,g,b};
 
-wire rotate_ccw = 0;
+wire screen_flipped;
+wire rotate_ccw = screen_flipped;
 screen_rotate screen_rotate (.*);
 
 
@@ -359,6 +361,8 @@ assign AUDIO_S = 0;
 
 wire rom_download = ioctl_download & !ioctl_index;
 wire reset = (RESET | status[0] | buttons[1]);
+wire orig_vtiming = ~status[8];
+wire cpu_speed = 1;
 
 burger_time burger_time
 (
@@ -407,7 +411,10 @@ burger_time burger_time
 	.hs_write(hs_write),
 
 	.pause(pause),
-	.flip_screen(status[7])
+	.flip_screen(status[7]),
+	.orig_vtiming(orig_vtiming),
+	.cpu_speed(cpu_speed),
+	.screen_flipped_o(screen_flipped)
 );
 
 // HISCORE SYSTEM
