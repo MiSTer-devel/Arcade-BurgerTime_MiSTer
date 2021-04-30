@@ -80,7 +80,11 @@ port
 	hs_write       : in  std_logic;
 
 	pause          : in  std_logic;
-        flip_screen    : in  std_logic
+	flip_screen    : in  std_logic;
+	orig_vtiming   : in  std_logic := '1'; -- 1: 272 lines @ 57.44Hz, 0: 261 lines @ 59.86Hz
+	cpu_speed      : in  std_logic := '1'; -- 0: 0.75Mhz, 1: 1.5Mhz
+	screen_flipped_o : out std_logic
+
   );
 end burger_time;
 
@@ -249,7 +253,8 @@ begin
 			hcnt <= hcnt + '1';
 			if hcnt = 383 then
 				hcnt <= (others => '0');
-				if vcnt = 260 then -- total should be 272 from Bump&Jump schematics !
+				-- total should be 272 from Bump&Jump schematics !
+				if (orig_vtiming = '1' and vcnt = 271) or (orig_vtiming = '0' and vcnt = 260) then
 					vcnt <= (others => '0');
 				else
 					vcnt <= vcnt + '1';
@@ -348,8 +353,8 @@ begin
 	end if;
 end process;
 
-
-cpu_ena <= '1' when hcnt(2 downto 0) = "111" and clock_6 = '1' else '0';
+-- CPU speed selectable by jumper on board (J1?) 1.5Mhz/0.75Mhz
+cpu_ena <= '1' when (hcnt(2) = '1' or cpu_speed = '1') and hcnt(1 downto 0) = "11" and clock_6 = '1' else '0';
 
 -- chip select
 wram_cs     <= '1' when cpu_addr(15 downto 11) = "00000"         else '0'; -- working ram     0000-07ff
@@ -391,6 +396,7 @@ cpu_di_dec <= cpu_di when decrypt = '0' else
 ----------------------------
 
 screen_flipped <= flip_screen xor cocktail_flip;
+screen_flipped_o <= screen_flipped;
 
 -- foreground ram addr
 fg_ram_addr_sel <= "00" when cpu_ena = '1' and cpu_addr(11) = '0' else
@@ -620,7 +626,7 @@ begin
 			end if;
 
 			if hcnt = hcnt_base then
-			 if vcnt = 250 then
+			 if (orig_vtiming = '1' and vcnt = 261) or (orig_vtiming = '0' and vcnt = 250) then
 				vsync_cnt := X"0";
 			 else
 				if vsync_cnt < X"F" then vsync_cnt := vsync_cnt + '1'; end if;
@@ -654,7 +660,8 @@ begin
 			video_hs <= hsync0;
 
 			if    vsync_cnt = 0 then video_vs <= '0';
-			elsif vsync_cnt = 8 then video_vs <= '1';
+			--elsif vsync_cnt = 8 then video_vs <= '1';
+			elsif vsync_cnt = 3 then video_vs <= '1';
 			end if;
 		end if;
 	end if;
