@@ -8,7 +8,7 @@
 -- Use at your own risk
 ---------------------------------------------------------------------------------
 -- gen_ram.vhd & io_ps2_keyboard
--------------------------------- 
+--------------------------------
 -- Copyright 2005-2008 by Peter Wendrich (pwsoft@syntiac.com)
 -- http://www.syntiac.com/fpga64.html
 ---------------------------------------------------------------------------------
@@ -20,7 +20,7 @@
 ---------------------------------------------------------------------------------
 -- Use burger_timer_de10_lite.sdc to compile (Timequest constraints)
 -- /!\
--- Don't forget to set device configuration mode with memory initialization 
+-- Don't forget to set device configuration mode with memory initialization
 --  (Assignments/Device/Pin options/Configuration mode)
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
@@ -34,13 +34,12 @@ port
 (
 	clock_12     : in std_logic;
 	reset        : in std_logic;
-	 
-	dn_addr      : in  std_logic_vector(15 downto 0);
+	dn_addr      : in  std_logic_vector(16 downto 0);
 	dn_data      : in  std_logic_vector(7 downto 0);
-	dn_wr        : in  std_logic;
+	dn_wr        : in  std_logic ;
 
 	video_ce     : out std_logic;
-	 
+
 	video_r      : out std_logic_vector(2 downto 0);
 	video_g      : out std_logic_vector(2 downto 0);
 	video_b      : out std_logic_vector(1 downto 0);
@@ -50,25 +49,26 @@ port
 	video_vblank : out std_logic;
 	video_hblank : out std_logic;
 	video_csync  : out std_logic;
-	
+
 	audio_out    : out std_logic_vector(10 downto 0);
-		
-	start2         : in std_logic;
+
 	start1         : in std_logic;
+	start2         : in std_logic;
 	coin1          : in std_logic;
- 
+	coin2          : in std_logic;
+
 	fire1          : in std_logic;
 	right1         : in std_logic;
 	left1          : in std_logic;
 	down1          : in std_logic;
 	up1            : in std_logic;
- 
+
 	fire2          : in std_logic;
 	right2         : in std_logic;
-	left2          : in std_logic; 
+	left2          : in std_logic;
 	down2          : in std_logic;
 	up2            : in std_logic;
-	
+
 	dip_sw1        : in std_logic_vector(7 downto 0);
 	dip_sw2        : in std_logic_vector(7 downto 0);
 
@@ -79,8 +79,8 @@ port
 	hs_data_in     : in  std_logic_vector(7 downto 0);
 	hs_write       : in  std_logic;
 
-	pause          : in  std_logic
-
+	pause          : in  std_logic;
+        flip_screen    : in  std_logic
   );
 end burger_time;
 
@@ -90,8 +90,8 @@ architecture syn of burger_time is
   signal clock_12n      : std_logic;
   signal clock_6        : std_logic := '0';
   signal reset_n        : std_logic;
-      
-  -- cpu signals  
+
+  -- cpu signals
   signal cpu_addr       : std_logic_vector(23 downto 0);
   signal cpu_di         : std_logic_vector( 7 downto 0);
   signal cpu_di_dec     : std_logic_vector( 7 downto 0);
@@ -102,10 +102,10 @@ architecture syn of burger_time is
   signal cpu_ena        : std_logic;
   signal had_written    : std_logic := '0';
   signal decrypt        : std_logic;
-  
+
   -- program rom signals
   signal prog_rom_cs     : std_logic;
-  signal prog_rom_do     : std_logic_vector(7 downto 0); 
+  signal prog_rom_do     : std_logic_vector(7 downto 0);
 
   -- working ram signals
   signal wram_cs         : std_logic;
@@ -121,7 +121,7 @@ architecture syn of burger_time is
   signal fg_ram_low_do   : std_logic_vector(7 downto 0);
   signal fg_ram_high_do  : std_logic_vector(1 downto 0);
 
-  
+
   -- video scan counter
   signal hcnt   : std_logic_vector(8 downto 0);
   signal vcnt   : std_logic_vector(8 downto 0);
@@ -136,15 +136,16 @@ architecture syn of burger_time is
   signal vcnt_flip : std_logic_vector(8 downto 0);
   signal cocktail_we   : std_logic;
   signal cocktail_flip : std_logic := '0';
+  signal screen_flipped: std_logic;
   signal hcnt8_r       : std_logic;
   signal hcnt8_rr      : std_logic;
- 
+
 	-- io
 	signal io_cs      : std_logic;
 	signal btn_p1     : std_logic_vector(7 downto 0);
 	signal btn_p2     : std_logic_vector(7 downto 0);
 	signal btn_system : std_logic_vector(7 downto 0);
-	
+
 	-- foreground and sprite graphix
 	signal sprite_attr         : std_logic_vector( 2 downto 0);
 	signal sprite_tile         : std_logic_vector( 7 downto 0);
@@ -158,7 +159,7 @@ architecture syn of burger_time is
 	signal fg_grphx_1_do       : std_logic_vector( 7 downto 0);
 	signal fg_grphx_2_do       : std_logic_vector( 7 downto 0);
 	signal fg_grphx_3_do       : std_logic_vector( 7 downto 0);
-	signal fg_sp_grphx_1       : std_logic_vector( 7 downto 0);	
+	signal fg_sp_grphx_1       : std_logic_vector( 7 downto 0);
 	signal fg_sp_grphx_2       : std_logic_vector( 7 downto 0);
 	signal fg_sp_grphx_3       : std_logic_vector( 7 downto 0);
 	signal display_tile        : std_logic;
@@ -167,12 +168,12 @@ architecture syn of burger_time is
 	signal sp_bits_out         : std_logic_vector( 2 downto 0);
 	signal fg_bits             : std_logic_vector( 2 downto 0);
 
-	-- color palette 
+	-- color palette
 	signal palette_addr : std_logic_vector(3 downto 0);
 	signal palette_cs   : std_logic;
 	signal palette_we   : std_logic;
 	signal palette_do   : std_logic_vector(7 downto 0);
-	
+
 	-- background map rom
 	signal bg_map_addr : std_logic_vector(10 downto 0);
 	signal bg_map_do   : std_logic_vector(7 downto 0);
@@ -186,7 +187,7 @@ architecture syn of burger_time is
 	signal bg_hcnt	      : std_logic_vector( 7 downto 0);
 	signal bg_scan_hcnt  : std_logic_vector( 9 downto 0);
 	signal bg_scan_addr  : std_logic_vector( 9 downto 0);
-	signal bg_grphx_addr : std_logic_vector(10 downto 0); 
+	signal bg_grphx_addr : std_logic_vector(10 downto 0);
 	signal bg_grphx_1_do : std_logic_vector( 7 downto 0);
 	signal bg_grphx_2_do : std_logic_vector( 7 downto 0);
 	signal bg_grphx_3_do : std_logic_vector( 7 downto 0);
@@ -194,29 +195,30 @@ architecture syn of burger_time is
 	signal bg_grphx_2    : std_logic_vector( 7 downto 0);
 	signal bg_grphx_3    : std_logic_vector( 7 downto 0);
 	signal bg_bits       : std_logic_vector( 2 downto 0);
-	
+
 	-- misc
 	signal raz_nmi_we : std_logic;
 	signal coin1_r : std_logic;
+	signal coin2_r : std_logic;
 	signal sound_req : std_logic;
-	
+
 	signal romp_cs,roms1_cs,roms2_cs,roms3_cs,romb1_cs,romb2_cs,romb3_cs,romb4_cs  : std_logic;
-	
+
 begin
 
 --process (clock_12, cpu_sync)
---begin 
+--begin
 --	if rising_edge(clock_12) then
 --		if cpu_sync = '1' then
 --			dbg_cpu_addr <= cpu_addr(15 downto 0);
 --		end if;
---	end if;		
+--	end if;
 --end process;
 
 reset_n <= not reset;
 clock_12n <= not clock_12;
 video_ce <= clock_6;
-  
+
 process (clock_12, reset)
   begin
 	if reset='1' then
@@ -242,7 +244,7 @@ begin
 	if reset='1' then
 		hcnt  <= (others => '0');
 		vcnt  <= (others => '0');
-	else 
+	else
 		if rising_edge(clock_12) and clock_6 = '1' then
 			hcnt <= hcnt + '1';
 			if hcnt = 383 then
@@ -252,15 +254,15 @@ begin
 				else
 					vcnt <= vcnt + '1';
 				end if;
-			end if;			
+			end if;
 		end if;
 
 	end if;
 end process;
 
-hcnt_flip <= hcnt when cocktail_flip = '0' else not hcnt;
-vcnt_flip <= not vcnt when cocktail_flip = '0' else vcnt;
-  
+hcnt_flip <= hcnt when screen_flipped = '0' else not hcnt;
+vcnt_flip <= not vcnt when screen_flipped = '0' else vcnt;
+
 --ROM_START( btime )
 --	ROM_REGION( 0x10000, "maincpu", 0 )
 --	ROM_LOAD( "aa04.9b",      0xc000, 0x1000, CRC(368a25b5) SHA1(ed3f3712423979dcb351941fa85dce6a0a7bb16b) )
@@ -309,11 +311,11 @@ vcnt_flip <= not vcnt when cocktail_flip = '0' else vcnt;
 -- btn_p2     -- nu/nu/unkonw/jump/down/up/left/right
 -- btn_system -- coin2/coin1/unknown/unknown/unkown/tilt/start2/start1
 
---dip_sw1 <= "00111111";  
+--dip_sw1 <= "00111111";
 --dip_sw2 <= "11101110";
 btn_p1 <=  not("000"&fire1 & down1 & up1 & left1 & right1);
 btn_p2 <=  not("000"&fire2 & down2 & up2 & left2 & right2);
-btn_system <= ('0'&coin1) & not("0000"&start2&start1);
+btn_system <= (coin2&coin1) & not("0000"&start2&start1);
 
 -- misc (coin, nmi, cocktail)
 process (reset,clock_12)
@@ -325,17 +327,18 @@ begin
 	else
 		if rising_edge(clock_12)then
 			coin1_r <= coin1;
-			if coin1_r = '0' and coin1 = '1' then
+			coin2_r <= coin2;
+			if (coin1_r = '0' and coin1 = '1') or (coin2_r = '0' and coin2 = '1') then
 				cpu_nmi_n <= '0';
-			end if;		
+			end if;
 			if raz_nmi_we = '1' then
-				cpu_nmi_n <= '1';		
+				cpu_nmi_n <= '1';
 			end if;
 			if cpu_ena = '1' then
 				if cpu_rw_n = '0' then
 					had_written <= '1';
-				elsif cpu_sync = '1' then  
-					had_written <= '0'; 					
+				elsif cpu_sync = '1' then
+					had_written <= '0';
 				end if;
 			end if;
 			if cocktail_we = '1' then
@@ -343,17 +346,17 @@ begin
 			end if;
 		end if;
 	end if;
-end process;	
+end process;
 
 
 cpu_ena <= '1' when hcnt(2 downto 0) = "111" and clock_6 = '1' else '0';
-  
+
 -- chip select
 wram_cs     <= '1' when cpu_addr(15 downto 11) = "00000"         else '0'; -- working ram     0000-07ff
-io_cs       <= '1' when cpu_addr(15 downto  3) = "0100000000000" else '0'; -- player/dip_sw   4000-4007 (4004) 
+io_cs       <= '1' when cpu_addr(15 downto  3) = "0100000000000" else '0'; -- player/dip_sw   4000-4007 (4004)
 fg_ram_cs   <= '1' when cpu_addr(15 downto 12) = "0001"          else '0'; -- foreground ram  1000-1fff
 palette_cs  <= '1' when cpu_addr(15 downto  4) = "000011000000"  else '0'; -- palette ram     0c00-0c0f
-prog_rom_cs <= '1' when cpu_addr(15 downto 14) = "11"            else '0'; -- program rom     c000-ffff
+prog_rom_cs <= '1' when cpu_addr(15)           = '1'             else '0'; -- program rom     8000-ffff
 
 -- write enable
 wram_we        <= '1' when wram_cs = '1'                          and cpu_rw_n = '0' and cpu_ena = '1' else '0'; -- 0000-07ff
@@ -377,35 +380,37 @@ cpu_di <= wram_do        when wram_cs     = '1' else
 			 fg_ram_low_do  when (fg_ram_cs = '1') and (cpu_addr(10) = '0') else
 			 "000000"&fg_ram_high_do when (fg_ram_cs = '1') and (cpu_addr(10) = '1') else
           X"FF";
-			 
+
 -- decrypt fetched instruction
 decrypt <= '1' when ((cpu_addr(15 downto 0) and X"0104") = X"0104") and (cpu_sync = '1') and (had_written = '1') else '0';
 cpu_di_dec <= cpu_di when decrypt = '0' else
 				  cpu_di(6) & cpu_di(5) & cpu_di(3) & cpu_di(4) & cpu_di(2) & cpu_di(7) & cpu_di(1 downto 0);
 
-----------------------------				  
+----------------------------
 -- foreground and sprites --
 ----------------------------
-    
+
+screen_flipped <= flip_screen xor cocktail_flip;
+
 -- foreground ram addr
 fg_ram_addr_sel <= "00" when cpu_ena = '1' and cpu_addr(11) = '0' else
 						 "01" when cpu_ena = '1' and cpu_addr(11) = '1' else
 						 "10" when cpu_ena = '0' and hcnt(8) = '0' else
 						 "11";
-  
+
 with fg_ram_addr_sel select
 fg_ram_addr <= cpu_addr(4 downto 0) & cpu_addr(9 downto 5)   when "00",    -- cpu mirrored addressing
 				   cpu_addr(9 downto 0)                          when "01",    -- cpu normal addressing
 					vcnt_flip(7 downto 3) & hcnt_flip(7 downto 3) when "10",    -- foreground tile scan addressing
 					"00000" & hcnt(6 downto 2)                    when others;  -- sprite data scan addressing
 
--- latch sprite data, 
+-- latch sprite data,
 -- manage fg and sprite graphix rom address
 -- manage sprite line buffer address
 process (clock_12, clock_6)
 begin
 	if rising_edge(clock_12) and clock_6 = '1' then
-		
+
 		if  hcnt(3 downto 0) = "0000" then
 			sprite_attr <= fg_ram_low_do(2 downto 0);
 		end if;
@@ -414,22 +419,22 @@ begin
 		end if;
 		if  hcnt(3 downto 0) = "1000" then
 			if sprite_attr(1) = '0' then
-				sprite_line <=  vcnt_flip(7 downto 0) - 0 + fg_ram_low_do(7 downto 0);
+				sprite_line <=  vcnt_flip(7 downto 0) + (screen_flipped & "0") - (cocktail_flip & "0") + fg_ram_low_do(7 downto 0);
 			else
-				sprite_line <= (vcnt_flip(7 downto 0) - 0 + fg_ram_low_do(7 downto 0)) xor X"0F"; -- flip V
+				sprite_line <= (vcnt_flip(7 downto 0) + (screen_flipped & "0") - (cocktail_flip & "0") + fg_ram_low_do(7 downto 0)) xor X"0F"; -- flip V
 			end if;
 		end if;
-		
+
 		if hcnt(2 downto 0) = "100" then
 			hcnt8_r <= hcnt(8);
 			fg_grphx_addr_early <= fg_ram_high_do & fg_ram_low_do & vcnt_flip(2 downto 0); -- fg_ram_low_do(7) = '1' => low priority foreground
 			if hcnt8_r = '1' then
-				fg_grphx_addr <= sprite_tile & not (sprite_attr(2) xor hcnt_flip(3) xor cocktail_flip) & sprite_line(3 downto 0);
+				fg_grphx_addr <= sprite_tile & not (sprite_attr(2) xor hcnt_flip(3) xor screen_flipped) & sprite_line(3 downto 0);
 				if hcnt(3) = '1' then
 					if (sprite_line(7 downto 4) = "1111") and (sprite_attr(0) = '1') then
 						display_tile <= '1';
-					else 
-						display_tile <= '0';					
+					else
+						display_tile <= '0';
 					end if;
 				end if;
 			else
@@ -440,24 +445,24 @@ begin
 
 		if hcnt8_r = '1' then
 			if hcnt(3 downto 0) = X"D" then
-				sprite_buffer_addr <= fg_ram_low_do(7 downto 0);			
+				sprite_buffer_addr <= fg_ram_low_do(7 downto 0);
 				hcnt8_rr <= '1';
 			else
 				sprite_buffer_addr <= sprite_buffer_addr + '1';
-			end if;	
+			end if;
 		else
-			if hcnt(7 downto 0) = X"0D" then 
+			if hcnt(7 downto 0) = X"0D" then
 				sprite_buffer_addr <= X"01"; -- (others => '0');
 				hcnt8_rr <= '0';
 			else
 				sprite_buffer_addr <= sprite_buffer_addr + '1';
 			end if;
 		end if;
-					
-	end if;	
+
+	end if;
 end process;
 
-sprite_buffer_addr_flip <= not (sprite_buffer_addr) when hcnt8_rr = '0' and cocktail_flip = '1' else sprite_buffer_addr;
+sprite_buffer_addr_flip <= not (sprite_buffer_addr) when hcnt8_rr = '0' and screen_flipped = '1' else sprite_buffer_addr;
 
 -- latch and shift foreground and sprite graphics
 process (clock_12, clock_6)
@@ -468,13 +473,13 @@ begin
 				fg_sp_grphx_1 <= fg_grphx_1_do;
 				fg_sp_grphx_2 <= fg_grphx_2_do;
 				fg_sp_grphx_3 <= fg_grphx_3_do;
-				fg_low_priority <= '1'; --fg_grphx_addr(10); -- #fg_ram_low_do(7) (always 1 for burger time) 
-			else	
+				fg_low_priority <= '1'; --fg_grphx_addr(10); -- #fg_ram_low_do(7) (always 1 for burger time)
+			else
 				fg_sp_grphx_1 <= (others =>'0');
 				fg_sp_grphx_2 <= (others =>'0');
 				fg_sp_grphx_3 <= (others =>'0');
 			end if;
-		elsif cocktail_flip = '0' or hcnt8_rr = '1' then
+		elsif screen_flipped = '0' or hcnt8_rr = '1' then
 			fg_sp_grphx_1 <= '0' & fg_sp_grphx_1(7 downto 1);
 			fg_sp_grphx_2 <= '0' & fg_sp_grphx_2(7 downto 1);
 			fg_sp_grphx_3 <= '0' & fg_sp_grphx_3(7 downto 1);
@@ -483,12 +488,12 @@ begin
 			fg_sp_grphx_2 <= fg_sp_grphx_2(6 downto 0) & '0';
 			fg_sp_grphx_3 <= fg_sp_grphx_3(6 downto 0) & '0';
 		end if;
-	end if;	
+	end if;
 end process;
 
-fg_sp_bits <= fg_sp_grphx_3(0) & fg_sp_grphx_2(0) & fg_sp_grphx_1(0) when cocktail_flip = '0' or hcnt8_rr = '1' else
+fg_sp_bits <= fg_sp_grphx_3(0) & fg_sp_grphx_2(0) & fg_sp_grphx_1(0) when screen_flipped = '0' or hcnt8_rr = '1' else
 				  fg_sp_grphx_3(7) & fg_sp_grphx_2(7) & fg_sp_grphx_1(7);
-				  
+
 -- data to sprite buffer
 sprite_buffer_di <= "000"            when hcnt8_rr = '0' else -- clear ram after read
 						  sprite_buffer_do when fg_sp_bits = "000" else fg_sp_bits; -- sp vs sp priority rules
@@ -508,53 +513,53 @@ end process;
 -- mux foreground and sprite buffer output with priorities
 fg_bits <= sp_bits_out when (fg_sp_bits = "000") or (sp_bits_out/="000" and fg_low_priority = '1')  else fg_sp_bits;
 
-----------------				  
+----------------
 -- background --
 ----------------
 
 -- latch scroll1 & 2 data
-process (clock_12n,clock_6) 
+process (clock_12n,clock_6)
 begin
-	if rising_edge(clock_12n) and clock_6 = '1' then	
-		if scroll1_we = '1' then 
+	if rising_edge(clock_12n) and clock_6 = '1' then
+		if scroll1_we = '1' then
 			scroll1 <= cpu_do(4 downto 0);
-		end if;		
-		if scroll2_we = '1' then 
+		end if;
+		if scroll2_we = '1' then
 			scroll2 <= cpu_do;
-		end if;		
+		end if;
 	end if;
 end process;
 
 -- manage background rom map address
-bg_scan_hcnt <= (hcnt_flip) + (scroll1(1 downto 0)&scroll2) + "0011110010" when cocktail_flip = '0' else
-                (hcnt_flip) + (scroll1(1 downto 0)&scroll2) + "1100000101";
+bg_scan_hcnt <= (hcnt_flip) + (scroll1(1 downto 0)&scroll2) + (cocktail_flip & cocktail_flip & "11110010") when screen_flipped = '0' else
+                (hcnt_flip) + (scroll1(1 downto 0)&scroll2) + (cocktail_flip & cocktail_flip & "00000101");
 
 bg_map_addr <= scroll1(2)  & bg_scan_hcnt(9 downto 4) & vcnt_flip(7 downto 4);
 
 -- manage background graphics rom address
-process (clock_12,clock_6) 
+process (clock_12,clock_6)
 begin
-	if rising_edge(clock_12) and clock_6 = '0' then	
-		if bg_scan_hcnt(2 downto 0) = "000" then 
+	if rising_edge(clock_12) and clock_6 = '0' then
+		if bg_scan_hcnt(2 downto 0) = "000" then
 			bg_grphx_addr <= bg_map_do(5 downto 0) & bg_scan_hcnt(3) & vcnt_flip(3 downto 0);
-		end if;		
+		end if;
 	end if;
 end process;
-		
+
 -- latch and shift background graphics
 process (clock_12,clock_6)
 begin
 	if rising_edge(clock_12) and clock_6 = '1' then
 		if scroll1(4) = '0' then
 				bg_grphx_1 <= (others => '0');
-				bg_grphx_2 <= (others => '0');		
-				bg_grphx_3 <= (others => '0');		
-		else	
-			if bg_scan_hcnt(2 downto 0) = "000" then 
+				bg_grphx_2 <= (others => '0');
+				bg_grphx_3 <= (others => '0');
+		else
+			if bg_scan_hcnt(2 downto 0) = "000" then
 				bg_grphx_1 <= bg_grphx_1_do;
 				bg_grphx_2 <= bg_grphx_2_do;
 				bg_grphx_3 <= bg_grphx_3_do;
-			elsif cocktail_flip = '0' then
+			elsif screen_flipped = '0' then
 				bg_grphx_1 <= '0' & bg_grphx_1(7 downto 1);
 				bg_grphx_2 <= '0' & bg_grphx_2(7 downto 1);
 				bg_grphx_3 <= '0' & bg_grphx_3(7 downto 1);
@@ -564,27 +569,27 @@ begin
 				bg_grphx_3 <= bg_grphx_3(6 downto 0) & '0';
 			end if;
 		end if;
-	end if;	
+	end if;
 end process;
-		
-bg_bits <= bg_grphx_3(0) & bg_grphx_2(0) & bg_grphx_1(0) when cocktail_flip = '0' else
+
+bg_bits <= bg_grphx_3(0) & bg_grphx_2(0) & bg_grphx_1(0) when screen_flipped = '0' else
 			  bg_grphx_3(7) & bg_grphx_2(7) & bg_grphx_1(7);
 
--- manage color palette address 	
+-- manage color palette address
 palette_addr <= cpu_addr(3 downto 0) when palette_we = '1' else
-					 '1'&bg_bits when fg_bits = "000" else	
+					 '1'&bg_bits when fg_bits = "000" else
 					 '0'&fg_bits;
-					 
+
 -- get palette output
-process (clock_12,clock_6) 
+process (clock_12,clock_6)
 begin
 	if rising_edge(clock_12) and clock_6 = '0' then
 		video_r <= not palette_do(2 downto 0);
 		video_g <= not palette_do(5 downto 3);
 		video_b <= not palette_do(7 downto 6);
-	end if;	
+	end if;
 end process;
-				
+
 ----------------------------
 -- video syncs and blanks --
 ----------------------------
@@ -614,13 +619,13 @@ begin
 			elsif hcnt = hcnt_base+0-12       then hsync2 <= '1';
 			end if;
 
-			if hcnt = hcnt_base then 
+			if hcnt = hcnt_base then
 			 if vcnt = 250 then
 				vsync_cnt := X"0";
 			 else
 				if vsync_cnt < X"F" then vsync_cnt := vsync_cnt + '1'; end if;
 			 end if;
-			end if;	 
+			end if;
 
 			if    vsync_cnt = 0 then csync <= hsync1;
 			elsif vsync_cnt = 1 then csync <= hsync1;
@@ -634,12 +639,12 @@ begin
 			else                     csync <= hsync0;
 			end if;
 
-			if    hcnt = 267 then hblank <= '1'; 
+			if    hcnt = 267 then hblank <= '1';
 			elsif hcnt = 14 then hblank <= '0';
 			end if;
 
-			if    vcnt = 248 then vblank <= '1';   
-			elsif vcnt = 8   then vblank <= '0';   
+			if    vcnt = 248 then vblank <= '1';
+			elsif vcnt = 8   then vblank <= '0';
 			end if;
 
 			-- external sync and blank outputs
@@ -654,11 +659,11 @@ begin
 		end if;
 	end if;
 end process;
-			
+
 ---------------------------
 -- components
----------------------------			
-			
+---------------------------
+
 cpu_inst : entity work.T65
 port map
 (
@@ -685,17 +690,17 @@ port map
     DO          => cpu_do
 );
 
-romp_cs  <= '1' when dn_addr(15 downto 14) = "00"    else '0';
-roms1_cs <= '1' when dn_addr(15 downto 13) = "010"   else '0';
-roms2_cs <= '1' when dn_addr(15 downto 13) = "011"   else '0';
-roms3_cs <= '1' when dn_addr(15 downto 13) = "100"   else '0';
-romb1_cs <= '1' when dn_addr(15 downto 11) = "10100" else '0';
-romb2_cs <= '1' when dn_addr(15 downto 11) = "10101" else '0';
-romb3_cs <= '1' when dn_addr(15 downto 11) = "10110" else '0';
-romb4_cs <= '1' when dn_addr(15 downto 11) = "10111" else '0';
+romp_cs  <= '1' when dn_addr(16 downto 15) = "00" and
+                     dn_addr(14 downto 12) /= "000"  else '0';
+roms1_cs <= '1' when dn_addr(16 downto 13) = "0100"   else '0';
+roms2_cs <= '1' when dn_addr(16 downto 13) = "0101"   else '0';
+roms3_cs <= '1' when dn_addr(16 downto 13) = "0110"   else '0';
+romb1_cs <= '1' when dn_addr(16 downto 11) = "011100" else '0';
+romb2_cs <= '1' when dn_addr(16 downto 11) = "011101" else '0';
+romb3_cs <= '1' when dn_addr(16 downto 11) = "011110" else '0';
+romb4_cs <= '1' when dn_addr(16 downto 11) = "011111" else '0';
 
-
--- working ram 
+-- working ram
 wram : entity work.dpram generic map(11)
 port map(
  clock_a   => clock_12n,
@@ -703,7 +708,7 @@ port map(
  address_a => cpu_addr( 10 downto 0),
  data_a    => cpu_do,
  q_a       => wram_do,
- 
+
  clock_b   => clock_12,
  wren_b    => hs_write,
  address_b => hs_address,
@@ -712,20 +717,20 @@ port map(
 );
 
 -- program rom
-program_rom : work.dpram generic map (14)
+program_rom : work.dpram generic map (15)
 port map
 (
 	clock_a   => clock_12,
 	wren_a    => dn_wr and romp_cs,
-	address_a => dn_addr(13 downto 0),
+	address_a => dn_addr(14 downto 0),
 	data_a    => dn_data,
 
 	clock_b   => clock_12n,
-	address_b => cpu_addr(13 downto 0),
+	address_b => cpu_addr(14 downto 0),
 	q_b       => prog_rom_do
 );
 
--- foreground ram low 
+-- foreground ram low
 fg_ram_low : entity work.gen_ram
 generic map( dWidth => 8, aWidth => 10)
 port map(
@@ -872,17 +877,17 @@ burger_tiime_sound: entity work.burger_time_sound
 port map(
 	clock_12  => clock_12,
 	reset     => reset,
-	
+
 	dn_addr   => dn_addr,
 	dn_data   => dn_data,
 	dn_wr     => dn_wr,
-	
+
 	sound_req     => sound_req,
 	sound_code_in => cpu_do,
 	sound_timing  => vcnt(3),
 
 	audio_out     => audio_out,
-		
+
 	dbg_cpu_addr => dbg_cpu_addr
 );
 
