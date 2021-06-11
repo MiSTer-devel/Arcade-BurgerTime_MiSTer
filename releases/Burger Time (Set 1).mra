@@ -82,9 +82,8 @@
 		00 00 00 33 00 27 00 FF
 		</part>
 	</rom>
+	
 	<nvram index="4" size="39"/>
-
-	<nvram></nvram>
 
 	<remark></remark>
 
