@@ -8,4 +8,5 @@ set_global_assignment -name VHDL_FILE rtl/gen_ram.vhd
 set_global_assignment -name VHDL_FILE rtl/burger_time_sound.vhd
 set_global_assignment -name VHDL_FILE rtl/burger_time.vhd
 set_global_assignment -name VERILOG_FILE "rtl/hiscore.v"
+set_global_assignment -name VERILOG_FILE "rtl/pause.v"
 set_global_assignment -name SYSTEMVERILOG_FILE "Arcade-BurgerTime.sv"
